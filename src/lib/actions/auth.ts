@@ -65,3 +65,36 @@ export async function signInWithGoogle(): Promise<void> {
     redirect(data.url)
   }
 }
+
+export async function forgotPassword(formData: FormData): Promise<void> {
+  const supabase = await createClient()
+
+  const email = formData.get('email') as string
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/reset-password`,
+  })
+
+  if (error) {
+    redirect(`/forgot-password?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect('/forgot-password?message=Check your email for a password reset link')
+}
+
+export async function resetPassword(formData: FormData): Promise<void> {
+  const supabase = await createClient()
+
+  const password = formData.get('password') as string
+
+  const { error } = await supabase.auth.updateUser({
+    password,
+  })
+
+  if (error) {
+    redirect(`/auth/reset-password?error=${encodeURIComponent(error.message)}`)
+  }
+
+  redirect('/login?message=Password updated successfully')
+}

@@ -4,7 +4,10 @@ export const venueSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().min(1, 'Venue name is required'),
   address: z.string().optional(),
-  capacity: z.number().int().positive().optional(),
+  capacity: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : Number(val)),
+    z.number().int().positive().optional()
+  ),
 })
 
 export const eventSchema = z.object({

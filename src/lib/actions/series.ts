@@ -5,8 +5,18 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { seriesSchema, type SeriesFormData } from '@/lib/validations/event'
 import type { EventSeries } from '@/lib/types/database'
+import {
+  withCache,
+  cacheKeys,
+  CACHE_TTL,
+  invalidateUserSeriesCache,
+} from '@/lib/cache/redis'
 
-export async function getSeries() {
+export async function getSeries(): Promise<{
+  error: string | null
+  data: EventSeries[] | null
+  fromCache?: boolean
+}> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -14,17 +24,27 @@ export async function getSeries() {
     return { error: 'Unauthorized', data: null }
   }
 
-  const { data, error } = await supabase
-    .from('event_series')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
+  const cacheKey = cacheKeys.series(user.id)
 
-  if (error) {
-    return { error: error.message, data: null }
-  }
+  const { data, fromCache } = await withCache(
+    cacheKey,
+    async () => {
+      const { data, error } = await supabase
+        .from('event_series')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
 
-  return { error: null, data: data as EventSeries[] }
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      return data as EventSeries[]
+    },
+    CACHE_TTL.SERIES
+  )
+
+  return { error: null, data, fromCache }
 }
 
 export async function getSeriesById(id: string) {
@@ -73,6 +93,9 @@ export async function createSeries(formData: SeriesFormData) {
     return { error: error.message }
   }
 
+  // Invalidate Redis cache
+  await invalidateUserSeriesCache(user.id)
+
   revalidatePath('/dashboard')
   redirect('/dashboard')
 }
@@ -100,6 +123,9 @@ export async function updateSeries(id: string, formData: SeriesFormData) {
     return { error: error.message }
   }
 
+  // Invalidate Redis cache
+  await invalidateUserSeriesCache(user.id)
+
   revalidatePath('/dashboard')
   revalidatePath(`/dashboard/series/${id}`)
   redirect('/dashboard')
@@ -122,6 +148,9 @@ export async function deleteSeries(id: string) {
   if (error) {
     return { error: error.message }
   }
+
+  // Invalidate Redis cache
+  await invalidateUserSeriesCache(user.id)
 
   revalidatePath('/dashboard')
   return { error: null }

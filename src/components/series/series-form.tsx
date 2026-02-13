@@ -49,9 +49,8 @@ export function SeriesForm({ series }: SeriesFormProps) {
       if (result?.error) {
         setError(result.error)
         toast.error(result.error)
-      } else {
-        toast.success(series ? 'Series updated successfully' : 'Series created successfully')
       }
+      // Success case: server action redirects to dashboard
     } catch {
       setError('Something went wrong. Please try again.')
       toast.error('Something went wrong. Please try again.')

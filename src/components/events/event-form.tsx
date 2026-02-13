@@ -68,9 +68,8 @@ export function EventForm({ series, event }: EventFormProps) {
       if (result?.error) {
         setError(result.error)
         toast.error(result.error)
-      } else {
-        toast.success(event ? 'Event updated successfully' : 'Event created successfully')
       }
+      // Success case: server action redirects to dashboard
     } catch {
       setError('Something went wrong. Please try again.')
       toast.error('Something went wrong. Please try again.')
